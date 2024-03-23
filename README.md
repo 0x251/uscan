@@ -16,11 +16,6 @@ uscan is a universal scanner designed to target systems such as WordPress, Jooml
 - [x] detect WAFs - warn the user
 
 
-### Contact
-join uscans telegram community to hear about updates and request new features or talk about issues
-<a href="https://t.me/uscan_updates">https://t.me/uscan_updates</a>
-
-
 ![image](https://imgur.com/CsiPC8X.gif)
 
 
