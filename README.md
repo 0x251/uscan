@@ -1,7 +1,7 @@
-# Uscan_Remastered
+# Uscan
 ...
 
-This is a new version of Uscan, Version Alpha
+uscan is a universal scanner designed to target systems such as WordPress, Joomla, Drupal, and Vbulletin. It uses automation to identify vulnerabilities in a target system, making it a more efficient and effective
 
 ### Todo
 - [x] Using WordPress version detect Cves for that version
