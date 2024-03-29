@@ -1,4 +1,4 @@
-import requests, httpx
+import requests, httpx, asyncio
 import re
 import json
 from ..config import Config
@@ -111,9 +111,8 @@ class Wordpress(SuccessMessages, Config):
     def detect_wordpress_plugins(url: str):
         def check_vulns(plugin_name: str):
             # 226d6cb5-3981-4350-b336-1a5976c9dc49
-            response = httpx.get("https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={}".format(plugin_name))
+            response = retry_request.retry(httpx.get, f"https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch={plugin_name}", timeout=CONFIG.timeouts(), headers={'User-Agent': CONFIG.useragent()})
             data = json.loads(response.content)
-                # Check if the plugin has any vulnerabilities.
             if data["totalResults"] > 0:
                 return (f'{SuccessMessages.FOUND_WORDPRESS_PLUGIN_VULNS} {plugin_name} - [Most Recent CVE]: {data["vulnerabilities"][0]["cve"]["id"]} - [Total CVES]: {data["totalResults"]}')
             else:
@@ -164,46 +163,45 @@ class Wordpress(SuccessMessages, Config):
         retry = retry_request.retry(httpx.get, url, headers={'User-Agent': CONFIG.useragent()}, timeout=CONFIG.timeouts())
         if wordpress_version in retry.text:
             print("Old Version of wordpress detected")
-            ...
+            
 
     @staticmethod
-    def detect_wordpress_backups(url: str) -> None:
-        backup = [
-			'wp-config.php~', 'wp-config.php.save', '.wp-config.php.bck', 
-			'wp-config.php.bck', '.wp-config.php.swp', 'wp-config.php.swp', 
-			'wp-config.php.swo', 'wp-config.php_bak', 'wp-config.bak', 
-			'wp-config.php.bak', 'wp-config.save', 'wp-config.old', 
-			'wp-config.php.old', 'wp-config.php.orig', 'wp-config.orig', 
-			'wp-config.php.original', 'wp-config.original', 'wp-config.txt', 
-			'wp-config.php.txt', 'wp-config.backup', 'wp-config.php.backup', 
-			'wp-config.copy', 'wp-config.php.copy', 'wp-config.tmp', 
-			'wp-config.php.tmp', 'wp-config.zip', 'wp-config.php.zip', 
-			'wp-config.db', 'wp-config.php.db', 'wp-config.dat',
-			'wp-config.php.dat', 'wp-config.tar.gz', 'wp-config.php.tar.gz', 
-			'wp-config.back', 'wp-config.php.back', 'wp-config.test', 
-			'wp-config.php.test', "wp-config.php.1","wp-config.php.2",
-			"wp-config.php.3", "wp-config.php._inc", "wp-config_inc",
-			'wp-config.php.SAVE', '.wp-config.php.BCK', 
-			'wp-config.php.BCK', '.wp-config.php.SWP', 'wp-config.php.SWP', 
-			'wp-config.php.SWO', 'wp-config.php_BAK', 'wp-config.BAK', 
-			'wp-config.php.BAK', 'wp-config.SAVE', 'wp-config.OLD', 
-			'wp-config.php.OLD', 'wp-config.php.ORIG', 'wp-config.ORIG', 
-			'wp-config.php.ORIGINAL', 'wp-config.ORIGINAL', 'wp-config.TXT', 
-			'wp-config.php.TXT', 'wp-config.BACKUP', 'wp-config.php.BACKUP', 
-			'wp-config.COPY', 'wp-config.php.COPY', 'wp-config.TMP', 
-			'wp-config.php.TMP', 'wp-config.ZIP', 'wp-config.php.ZIP', 
-			'wp-config.DB', 'wp-config.php.DB', 'wp-config.DAT',
-			'wp-config.php.DAT', 'wp-config.TAR.GZ', 'wp-config.php.TAR.GZ', 
-			'wp-config.BACK', 'wp-config.php.BACK', 'wp-config.TEST', 
-			'wp-config.php.TEST', "wp-config.php._INC", "wp-config_INC"
-			]
+    async def detect_wordpress_backups(url: str) -> None:
+        backup_files = [
+            'wp-config.php~', 'wp-config.php.save', '.wp-config.php.bck', 
+            'wp-config.php.bck', '.wp-config.php.swp', 'wp-config.php.swp', 
+            'wp-config.php.swo', 'wp-config.php_bak', 'wp-config.bak', 
+            'wp-config.php.bak', 'wp-config.save', 'wp-config.old', 
+            'wp-config.php.old', 'wp-config.php.orig', 'wp-config.orig', 
+            'wp-config.php.original', 'wp-config.original', 'wp-config.txt', 
+            'wp-config.php.txt', 'wp-config.backup', 'wp-config.php.backup', 
+            'wp-config.copy', 'wp-config.php.copy', 'wp-config.tmp', 
+            'wp-config.php.tmp', 'wp-config.zip', 'wp-config.php.zip', 
+            'wp-config.db', 'wp-config.php.db', 'wp-config.dat',
+            'wp-config.php.dat', 'wp-config.tar.gz', 'wp-config.php.tar.gz', 
+            'wp-config.back', 'wp-config.php.back', 'wp-config.test', 
+            'wp-config.php.test', "wp-config.php.1","wp-config.php.2",
+            "wp-config.php.3", "wp-config.php._inc", "wp-config_inc",
+            'wp-config.php.SAVE', '.wp-config.php.BCK', 
+            'wp-config.php.BCK', '.wp-config.php.SWP', 'wp-config.php.SWP', 
+            'wp-config.php.SWO', 'wp-config.php_BAK', 'wp-config.BAK', 
+            'wp-config.php.BAK', 'wp-config.SAVE', 'wp-config.OLD', 
+            'wp-config.php.OLD', 'wp-config.php.ORIG', 'wp-config.ORIG', 
+            'wp-config.php.ORIGINAL', 'wp-config.ORIGINAL', 'wp-config.TXT', 
+            'wp-config.php.TXT', 'wp-config.BACKUP', 'wp-config.php.BACKUP', 
+            'wp-config.COPY', 'wp-config.php.COPY', 'wp-config.TMP', 
+            'wp-config.php.TMP', 'wp-config.ZIP', 'wp-config.php.ZIP', 
+            'wp-config.DB', 'wp-config.php.DB', 'wp-config.DAT',
+            'wp-config.php.DAT', 'wp-config.TAR.GZ', 'wp-config.php.TAR.GZ', 
+            'wp-config.BACK', 'wp-config.php.BACK', 'wp-config.TEST', 
+            'wp-config.php.TEST', "wp-config.php._INC", "wp-config_INC"
+        ]
         print(DetectionMessages.TRYING_DETECT_BACKUPS)
-        for backups in backup:
-            backup_request = retry_request.retry(httpx.get, f"{url}/{backups}", timeout=CONFIG.timeouts(), headers={'User-Agent': CONFIG.useragent()})
-            for _ in NOT_FOUND:
-                if _ in backup_request.text:
-                    continue
-            
-            if backup_request.status_code == 200:
-                print(f"{SuccessMessages.FOUND_WORDPRES_BACKUPS}{backups}")
-
+        async with httpx.AsyncClient(timeout=CONFIG.timeouts(), headers={'User-Agent': CONFIG.useragent()}) as client:
+            tasks = []
+            for backup_file in backup_files:
+                tasks.append(client.get(f"{url}/{backup_file}"))
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            for response, backup_file in zip(responses, backup_files):
+                if isinstance(response, httpx.Response) and response.status_code == 200 and not any(not_found_msg in response.text for not_found_msg in NOT_FOUND):
+                    print(f"{SuccessMessages.FOUND_WORDPRES_BACKUPS}{backup_file}")

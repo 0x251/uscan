@@ -1,3 +1,4 @@
+import asyncio
 from .recon.wordpress import Wordpress
 from .recon.no_cms import NoCMS
 from .config import Config
@@ -15,6 +16,8 @@ from .exploit.xss.xss import search_and_test_xss
 from .exploit.explot_handler import exploit_runner
 from messages import SuccessMessages, ErrorMessages, DetectionMessages
 from rich.console import Console
+from concurrent.futures import ThreadPoolExecutor
+
 
 class Scanner(SuccessMessages, ErrorMessages, DetectionMessages):
     def __init__(self) -> None:
@@ -70,28 +73,32 @@ class Scanner(SuccessMessages, ErrorMessages, DetectionMessages):
             self.cms_detect(self.detect_cms(url)[0], url)
 
     def detect_robots_and_logs(self, url: str) -> None:
-        detect_robots_txt(url)
-        detect_error_log(url)
-        detect_links_in_content(url)
+        with ThreadPoolExecutor(max_workers=self.CONFIG.threads()) as executor:
+            executor.submit(detect_robots_txt, url)
+            executor.submit(detect_error_log, url)
+            executor.submit(detect_links_in_content, url)
 
     # Run DNS Modules
     def run_dns_modules(self, url: str) -> None:
         print(self.START_DNS_SEARCH)
-        DnsRecords(url).dns_resolver()
+        with ThreadPoolExecutor(max_workers=self.CONFIG.threads()) as executor:
+            executor.submit(DnsRecords(url).dns_resolver)
+
         print(self.START_PORT_SCAN)
-        port_scan(url)
+        with ThreadPoolExecutor(max_workers=self.CONFIG.threads()) as executor:
+            executor.submit(port_scan, url)
 
     def run_exploit_modules(self, url: str) -> None:
         print(self.START_EXPLOIT_MODULES)
-        find_php_links(url)
-        detect_lfi(url)
+        with ThreadPoolExecutor(max_workers=self.CONFIG.threads()) as executor:
+            executor.submit(find_php_links, url)
+            executor.submit(detect_lfi, url)
 
-        if not self.CMS:
-            self.no_cms_modules(url)
+            if not self.CMS:
+                executor.submit(self.no_cms_modules, url)
 
-        if self.CMS == "Wordpress":
-            exploit_runner(self.CMS, url)
-
+            if self.CMS == "Wordpress":
+                executor.submit(exploit_runner, self.CMS, url)
 
     def detect_debug_logs(self, url):
         detect_debug_log(url)
@@ -104,6 +111,8 @@ class Scanner(SuccessMessages, ErrorMessages, DetectionMessages):
     def detect_cms(self, url: str) -> tuple:
         if Wordpress.detect_wordpress(url):
             self.CMS = "Wordpress"
+        else:
+            self.CMS = ""
 
         return (self.CMS, log_data_to_file(str(self.CMS), "detect", "cms"))
 
@@ -134,10 +143,18 @@ class Scanner(SuccessMessages, ErrorMessages, DetectionMessages):
         Returns:
             None
         """
+       
         host_info = HostInfo(url)
-        host_headers = [host for host in [host_info.content_type(), host_info.x_pingback(), host_info.get_server(), host_info.xss_protection(), 
-                                          host_info.cross_origin(), host_info.strict_transport(), host_info.x_content_type(), host_info.content_security()] 
-                        if host and print(f"{self.FOUND_HEADERS}{host}")]
+        headers_to_check = [host_info.content_type, host_info.x_pingback, host_info.get_server, host_info.xss_protection, 
+                            host_info.cross_origin, host_info.strict_transport, host_info.x_content_type, host_info.content_security]
+        
+        def check_and_print_header(header_function):
+            header = header_function()
+            if header:
+                print(f"{self.FOUND_HEADERS}{header}")
+        
+        with ThreadPoolExecutor(max_workers=self.CONFIG.threads()) as executor:
+            executor.map(check_and_print_header, headers_to_check)
 
         if host_info.detect_cloudflare():
             print(self.FOUND_CLOUDFLARE)
@@ -152,14 +169,20 @@ class Scanner(SuccessMessages, ErrorMessages, DetectionMessages):
                 url: str
 
         """
-        modules_to_run = [Wordpress.detect_wordpress_user(url), Wordpress.detect_wordpress_version(url),
-                          Wordpress.detect_wordpress_themes(url), Wordpress.detect_wordpress_plugins(url),
-                          Wordpress.detect_install_mode(url), Wordpress.detect_wordpress_backups(url), Wordpress.detect_directory_listing(url)]
-        for module in modules_to_run:
-            if module:
-                module()
+        
 
+        sync_modules_to_run = [Wordpress.detect_wordpress_user, Wordpress.detect_wordpress_version,
+                               Wordpress.detect_wordpress_themes, Wordpress.detect_wordpress_plugins,
+                               Wordpress.detect_install_mode, Wordpress.detect_directory_listing]
 
+        with ThreadPoolExecutor(max_workers=self.CONFIG.threads()) as executor:
+            for module in sync_modules_to_run:
+                executor.submit(module, url)
+
+        async def run_async_modules():
+            await Wordpress.detect_wordpress_backups(url)
+
+        asyncio.run(run_async_modules())
     def no_cms_modules(self, url: str) -> None:
         """
             Run no CMS Modules

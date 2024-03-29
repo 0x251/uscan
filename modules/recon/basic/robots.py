@@ -10,6 +10,7 @@ def enumrate_robots_txt(response: list[str]) -> None:
     disallowed_data = [f"{SuccessMessages.FOUND_DISALLOW_ROBOTS} {data}" for data in response if "Disallow" in data]
     if len(disallowed_data) > 2:
         print('\n'.join(disallowed_data))
+    print()
 
 def detect_robots_txt(url: str) -> None:
     retry_request = RetryRequest(max_retries=3)

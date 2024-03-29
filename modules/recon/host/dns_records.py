@@ -41,5 +41,5 @@ class DnsRecords:
             log_data_to_file('\n'.join(TXT_RECORD_LIST), "info", "dns-txt")
             # map = self.generate_dns_map()
             # draw_map = self.draw_dns_map(map)
-        except (dns.resolver.NoNameservers, dns.resolver.NoAnswer) as e:
+        except (dns.resolver.NoNameservers, dns.resolver.NoAnswer, dns.resolver.NXDOMAIN) as e:
             return print(ErrorMessages.NO_NAME_SERVER)

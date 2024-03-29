@@ -32,16 +32,19 @@ def port_scan(url: str):
     }
 
     for port, service in common_ports.items():
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex((url, port))
-        if result == 0:
-            print(f"{DetectionMessages.FOUND_OPEN_PORT} {port} - [{service}]")
-            if port in [80, 443, 8080]:
-                try:
-                    response = urllib.request.urlopen(f"http://{url}:{port}")
-                    print(f"{DetectionMessages.FOUND_WEB_SERVER} {port} - status [{response.getcode()}]")
-                except Exception as e:
-                   pass
-        sock.close()
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((url, port))
+            if result == 0:
+                print(f"{DetectionMessages.FOUND_OPEN_PORT} {port} - [{service}]")
+                if port in [80, 443, 8080]:
+                    try:
+                        response = urllib.request.urlopen(f"http://{url}:{port}")
+                        print(f"{DetectionMessages.FOUND_WEB_SERVER} {port} - status [{response.getcode()}]")
+                    except Exception as e:
+                        pass
+            sock.close()
+        except Exception:
+            pass
 

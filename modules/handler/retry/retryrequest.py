@@ -11,7 +11,7 @@ class RetryRequest:
                 response = func(*args, **kwargs)
                 return response
             except Exception as e:
-                #print(e)
+                
                 retries += 1
         print(ErrorMessages.RETRY_ERROR)
         return requests.Response()

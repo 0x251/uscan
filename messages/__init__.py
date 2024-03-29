@@ -39,6 +39,7 @@ class SuccessMessages:
     FOUND_XSS = f"{SUCCESS_MESSAGES}Potential XSS vulnerability found ››{Fore.YELLOW}"
     VULN_TO_EXPLOIT = f"{SUCCESS_MESSAGES}Exploitable ››{Fore.YELLOW}"
     FOUND_LISTING = f"{SUCCESS_MESSAGES}Listing Enabled ›› {Fore.YELLOW}"
+    PROCESSING_SQL = f"{SUCCESS_MESSAGES}Processing Links for SQL Injection ››{Fore.YELLOW} "
 
 class ErrorMessages:
     # Error messages for uscan
